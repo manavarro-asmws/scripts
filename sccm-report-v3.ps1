@@ -100,26 +100,38 @@ function Invoke-ReadOnlyQuery {
         if (Get-Module -ListAvailable -Name SqlServer -ErrorAction SilentlyContinue) {
             Import-Module SqlServer -ErrorAction SilentlyContinue
         }
-        if (Get-Command Invoke-Sqlcmd -ErrorAction SilentlyContinue) {
-            $params = @{
-                ServerInstance    = $Instance
-                Database          = $DatabaseName
-                Query             = $trimmed
-                QueryTimeout      = 120
-                TrustServerCertificate = $true
-                ErrorAction       = 'Stop'
+        $cmdInvokeSqlcmd = Get-Command Invoke-Sqlcmd -ErrorAction SilentlyContinue
+        if ($cmdInvokeSqlcmd) {
+            # Se construyen todos los parametros "deseados" y luego se filtran a los
+            # que realmente existen en la version de Invoke-Sqlcmd instalada en este
+            # servidor (versiones antiguas del modulo SqlServer/SQLPS no tienen
+            # -TrustServerCertificate, por ejemplo). Esto evita errores de
+            # "a parameter cannot be found" en servidores con modulos mas antiguos.
+            $paramsDeseados = @{
+                ServerInstance          = $Instance
+                Database                = $DatabaseName
+                Query                   = $trimmed
+                QueryTimeout            = 120
+                TrustServerCertificate  = $true
+                ErrorAction             = 'Stop'
             }
             if ($SqlCredential) {
-                $params['Username'] = $SqlCredential.UserName
-                $params['Password'] = $SqlCredential.GetNetworkCredential().Password
+                $paramsDeseados['Username'] = $SqlCredential.UserName
+                $paramsDeseados['Password'] = $SqlCredential.GetNetworkCredential().Password
+            }
+            $params = @{}
+            foreach ($clave in $paramsDeseados.Keys) {
+                if ($cmdInvokeSqlcmd.Parameters.ContainsKey($clave)) {
+                    $params[$clave] = $paramsDeseados[$clave]
+                }
             }
             return Invoke-Sqlcmd @params
         }
         else {
             # Fallback nativo de solo lectura via ADO.NET, sin depender del modulo SqlServer.
-            $connString = "Server=$Instance;Database=$DatabaseName;Integrated Security=True;TrustServerCertificate=True;Connection Timeout=30;"
+            $connString = "Server=$Instance;Database=$DatabaseName;Integrated Security=True;Connection Timeout=30;"
             if ($SqlCredential) {
-                $connString = "Server=$Instance;Database=$DatabaseName;User Id=$($SqlCredential.UserName);Password=$($SqlCredential.GetNetworkCredential().Password);TrustServerCertificate=True;Connection Timeout=30;"
+                $connString = "Server=$Instance;Database=$DatabaseName;User Id=$($SqlCredential.UserName);Password=$($SqlCredential.GetNetworkCredential().Password);Connection Timeout=30;"
             }
             $conn = New-Object System.Data.SqlClient.SqlConnection($connString)
             $cmd  = $conn.CreateCommand()
