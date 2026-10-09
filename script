@@ -1,0 +1,16 @@
+$f = 'C:\Windows\schemas\CodeIntegrity\ExamplePolicies\DefaultWindows_Audit.xml'
+$r = [ordered]@{}
+$os = Get-CimInstance Win32_OperatingSystem
+$r.Windows = "$($os.Caption) $($os.Version)"
+$r.Existe = Test-Path $f
+if ($r.Existe) {
+    $i = Get-Item $f -Force
+    $r.Atributos = "$($i.Attributes)"
+    $r.Fecha = "$($i.LastWriteTime)"
+    try { [IO.File]::OpenRead($f).Close(); $r.Lectura = 'OK' } catch { $r.Lectura = $_.Exception.Message }
+    try { $s = [IO.File]::Open($f, 'Open', 'ReadWrite', 'Read'); $s.Close(); $r.AperturaEscritura = 'OK' } catch { $r.AperturaEscritura = $_.Exception.Message }
+    $r.Propietario = (Get-Acl $f).Owner
+    $r.ACL = (icacls $f) -join ' | '
+}
+$r.RutaClienteSCCM = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\SMS\Client\Configuration\Client Properties' -ErrorAction SilentlyContinue).'Local SMS Path'
+[pscustomobject]$r | ConvertTo-Json -Compress
