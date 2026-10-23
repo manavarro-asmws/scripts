@@ -1,0 +1,17 @@
+
+$bt = 'C:\$WINDOWS.~BT'
+if (Test-Path $bt) {
+    takeown /F $bt /R /A /D Y | Out-Null
+    icacls $bt /grant Administrators:F /T /C /Q | Out-Null
+    Remove-Item $bt -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+Stop-Service wuauserv, bits -Force -ErrorAction SilentlyContinue
+Remove-Item 'C:\Windows\SoftwareDistribution\Download\*' -Recurse -Force -ErrorAction SilentlyContinue
+Start-Service bits, wuauserv -ErrorAction SilentlyContinue
+
+$ui = New-Object -ComObject UIResource.UIResourceMgr
+$cache = $ui.GetCacheInfo()
+$cache.GetCacheElements() | ForEach-Object { $cache.DeleteCacheElement($_.CacheElementID) }
+# Resultado
+"BT existe: $(Test-Path $bt) | Libre C: $([math]::Round((Get-PSDrive C).Free/1GB,1)) GB"
