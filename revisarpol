@@ -1,0 +1,8 @@
+$pol = 'C:\Windows\System32\GroupPolicy\Machine\Registry.pol'
+if (Test-Path $pol) { Rename-Item $pol "$pol.old_$(Get-Date -f yyyyMMddHHmm)" -Force }
+gpupdate /target:computer /force | Out-Null
+# Forzar política de máquina y escaneo de actualizaciones
+Invoke-WmiMethod -Namespace root\ccm -Class SMS_Client -Name TriggerSchedule -ArgumentList '{00000000-0000-0000-0000-000000000021}' | Out-Null
+Start-Sleep 60
+Invoke-WmiMethod -Namespace root\ccm -Class SMS_Client -Name TriggerSchedule -ArgumentList '{00000000-0000-0000-0000-000000000113}' | Out-Null
+"Registry.pol regenerado: $(Test-Path $pol)"
